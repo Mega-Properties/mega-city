@@ -117,8 +117,12 @@ select{padding:10px 12px;border:1px solid var(--line);border-radius:8px;backgrou
 @media (max-width:640px){.board-head{grid-template-columns:1fr 1fr}.bh-title{grid-column:1/-1;order:3}.bh-logo{height:84px;min-width:0}.bh-logo img{max-height:64px;max-width:100%}}
 .board-head h2{font-size:34px;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
 .board-head p{margin:4px 0 0;opacity:.8;font-size:15px}
-.board-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
-.bcat{padding:18px 22px;border-top:1px solid var(--line);border-right:1px solid var(--line)}
+.board-cols{display:grid}
+.bcol{border-top:1px solid var(--line);border-right:1px solid var(--line)}
+.bcol:last-child{border-right:0}
+.bcat{padding:18px 22px}
+.bcat+.bcat{border-top:1px solid var(--line)}
+.bcat h3 small{font:600 12px var(--body);color:var(--muted);text-transform:none;letter-spacing:0}
 .bcat h3{display:flex;align-items:center;gap:10px;font-size:18px;text-transform:uppercase;letter-spacing:.04em;padding-bottom:8px;margin-bottom:6px;border-bottom:3px solid var(--cat)}
 .bcat h3 i{width:14px;height:14px;border-radius:4px;background:var(--cat)}
 .brow{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dotted var(--line);font-size:17px}
@@ -394,18 +398,40 @@ function fillDirectory(){
     S.group==="floor"?floorGroups(list).map(g=>`<section class="fsec"><h2 class="fh">${esc(g.f)}<small>${g.items.length} ${g.items.length===1?"shop":"shops"}</small></h2><div class="grid">${g.items.map(card).join("")}</div></section>`).join(""):
     `<div class="grid">${list.map(card).join("")}</div>`;
 }
+/* Spread floor/category sections evenly over the board's columns; a long section continues in the next column. */
+function packCols(groups,n){
+  const H=2,total=groups.reduce((s,g)=>s+g.items.length+H,0),target=Math.ceil(total/n);
+  const cols=[[]];let used=0;
+  for(const g of groups){
+    let items=g.items.slice(),first=true;
+    while(items.length){
+      const need=items.length+H,left=target-used;
+      // keep a section whole: if it doesn't fit here but fits a fresh column, start the next column
+      if(cols.length<n&&used>0&&(need>left+3)&&(need<=target+3||left-H<3)){cols.push([]);used=0}
+      const room=(cols.length<n&&items.length+H<=target-used+3)?items.length:target-used-H;
+      const take=cols.length>=n?items.length:Math.max(1,Math.min(items.length,room));
+      cols[cols.length-1].push({...g,items:items.slice(0,take),cont:!first});
+      used+=take+H;items=items.slice(take);first=false;
+      if(items.length&&cols.length<n){cols.push([]);used=0}
+    }
+  }
+  return cols.filter(c=>c.length);
+}
+let rsz;window.addEventListener("resize",()=>{clearTimeout(rsz);rsz=setTimeout(()=>{if(S.view==="board")fillBoard()},200)});
 function fillBoard(){
   const b=$("#board");if(!b)return;const all=visible();
   const groups=S.group==="floor"
     ?floorGroups(all).map(g=>({title:g.f,color:"var(--ink)",items:g.items,tag:t=>t.shop}))
     :CATS.map(c=>({title:c.k,color:`var(${c.v})`,items:all.filter(t=>t.category===c.k).sort(byFloor),tag:t=>[t.shop,shortFloor(t.floor)].filter(Boolean).join(" · ")})).filter(g=>g.items.length);
   const used=CATS.filter(c=>all.some(t=>t.category===c.k));const lg=imgUrl(CONFIG.logoUrl);
+  const ncol=Math.max(1,Math.min(groups.reduce((s,g)=>s+g.items.length,0)>0?6:1,Math.floor((b.clientWidth||1100)/290)));
+  const cols=packCols(groups,ncol);
   b.innerHTML=`<div class="board-head"><div class="bh-logo">${logoImg(CONFIG.companyLogoUrl,CONFIG.companyName)}</div>
       <div class="bh-title"><h2>${esc(CONFIG.mallName||"Mall Directory")}</h2><p>Karibu · Welcome · Shop directory</p></div>
       <div class="bh-logo">${logoImg(CONFIG.logoUrl,CONFIG.mallName)}</div></div>
-    <div class="board-cols">${groups.length?groups.map(g=>`<section class="bcat" style="--cat:${g.color}"><h3><i></i>${esc(g.title)}</h3>
+    <div class="board-cols" style="grid-template-columns:repeat(${cols.length||1},minmax(0,1fr))">${groups.length?cols.map(col=>`<div class="bcol">${col.map(g=>`<section class="bcat" style="--cat:${g.color}"><h3><i></i>${esc(g.title)}${g.cont?" <small>(continued)</small>":""}</h3>
       ${g.items.map(t=>`<div class="brow" style="--cat:var(${catOf(t.category).v})">${logoHTML(t,"mini")}<b>${esc(t.name)}${t.status==="Coming Soon"?' <small class="hint">(coming soon)</small>':""}</b><em>${esc(g.tag(t))}</em></div>`).join("")}
-    </section>`).join(""):`<div class="empty" style="margin:20px">${S.loaded?"No shops listed yet.":"Loading shops…"}</div>`}</div>
+    </section>`).join("")}</div>`).join(""):`<div class="empty" style="margin:20px">${S.loaded?"No shops listed yet.":"Loading shops…"}</div>`}</div>
     ${S.group==="floor"&&used.length?`<div class="legend">${used.map(c=>`<span><i style="background:var(${c.v})"></i>${esc(c.k)}</span>`).join("")}</div>`:""}
     <div class="board-foot"><div class="scan"><div class="qr-box" id="qrBoard"></div><div><strong>Can't find it? Scan here</strong><div class="hint">Search every shop on your phone</div></div></div>
       <div class="hint">${all.length} shops</div></div>`;
