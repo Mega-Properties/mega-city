@@ -475,8 +475,8 @@ const SYNONYMS={
   salon:["salon","barber","beauty","spa"],barber:["barber","salon"],kinyozi:["barber","salon"],hair:["salon","barber","wig","hair"],
   atm:["atm","bank"],bank:["bank","atm","sacco"],cash:["atm","bank","m-pesa","mpesa","money"],pesa:["m-pesa","mpesa","money","bank","atm"],
   mpesa:["m-pesa","mpesa","money services"],"m-pesa":["m-pesa","mpesa","money services"],money:["money","m-pesa","bank","atm","sacco"],
-  food:["restaurant","café","cafe","bakery","fast food","juice","coffee","grill"],chakula:["restaurant","café","cafe","fast food","bakery"],
-  eat:["restaurant","café","cafe","fast food","bakery"],coffee:["coffee","café","cafe"],cake:["cake","bakery"],
+  food:["restaurant","bakery","fast food","juice","coffee","grill","cake"],chakula:["restaurant","fast food","bakery","juice","grill"],
+  eat:["restaurant","fast food","bakery","grill"],coffee:["coffee","café","cafe"],cake:["cake","bakery"],
   clothes:["boutique","fashion","clothing","wear","outfit","attire","thrift"],nguo:["boutique","fashion","clothing","wear","attire"],
   shoes:["footwear","shoes"],viatu:["footwear","shoes"],
   phone:["phone","mobile"],simu:["phone","mobile"],"sim card":["safaricom","airtel","m-pesa"],laptop:["laptop","computer"],
@@ -490,7 +490,7 @@ function matches(t,q){
   if(!q)return true;
   const hay=[t.name,t.category,t.about,t.shop,t.floor,t.keywords].join(" ").toLowerCase();
   if(hay.includes(q))return true;
-  const alts=SYNONYMS[q]||Object.keys(SYNONYMS).filter(k=>k.length>3&&q.startsWith(k)).flatMap(k=>SYNONYMS[k]);
+  const alts=SYNONYMS[q]||Object.keys(SYNONYMS).filter(k=>(k.length>3&&q.startsWith(k))||(q.length>=3&&k.startsWith(q))).flatMap(k=>SYNONYMS[k]);
   return alts.some(a=>hay.includes(a));
 }
 
@@ -510,7 +510,7 @@ function show(){
     <div id="facs"></div>
     <div id="grid"></div>
     <div class="qr-strip"><div class="qr-box" id="qrDir"></div><div><strong>Take the directory with you</strong><div class="hint">Scan to open this directory on your phone.</div></div></div>`;
-    $("#q").addEventListener("input",e=>{S.q=e.target.value;fillDirectory()});
+    $("#q").addEventListener("input",e=>{const was=S.q;S.q=e.target.value;if(S.q.trim()&&!was.trim())S.cat="All";fillDirectory()});
     $("#floorf").addEventListener("change",e=>{S.floor=e.target.value;fillDirectory()});
     wireSeg(m);drawQR($("#qrDir"),150);
   }else{
